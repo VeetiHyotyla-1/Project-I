@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Secure Bank - Account Statement</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .account-info { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+        .balance { font-size: 24px; color: #28a745; font-weight: bold; }
+        .tx-list { list-style: none; padding: 0; }
+        .tx-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Account Statement</h1>
+    <div class="account-info">
+        <p><strong>Account ID:</strong> {{ account.id }}</p>
+        <p><strong>Owner Username:</strong> {{ account.owner.username }}</p>
+        <p class="balance">Balance: ${{ account.balance }}</p>
+    </div>
+
+    <h3>Recent Transactions</h3>
+    <ul class="tx-list">
+        {% for tx in transactions %}
+            <li class="tx-item">
+                <span>{{ tx.description }}</span>
+                <strong>${{ tx.amount }}</strong>
+            </li>
+        {% empty %}
+            <li>No transactions found for this account.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+</body>
+</html>
