@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transaction Search Results</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .tx-list { list-style: none; padding: 0; }
+        .tx-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .back-link { display: inline-block; margin-top: 20px; color: #007bff; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Search Results</h1>
+    <p>Searching for: <strong>{{ query }}</strong></p>
+
+    <ul class="tx-list">
+        {% for tx in results %}
+            <li class="tx-item">
+                <span>Account ID {{ tx.account_id }}: {{ tx.description }}</span>
+                <strong>${{ tx.amount }}</strong>
+            </li>
+        {% empty %}
+            <li>No transactions found matching your search.</li>
+        {% endfor %}
+    </ul>
+
+    <a href="/statement/1/" class="back-link">&larr; Back to Statement</a>
+</div>
+
+</body>
+</html>

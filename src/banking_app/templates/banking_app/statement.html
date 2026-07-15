@@ -10,6 +10,11 @@
         .balance { font-size: 24px; color: #28a745; font-weight: bold; }
         .tx-list { list-style: none; padding: 0; }
         .tx-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .section { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }
+        .form-group { margin-bottom: 15px; }
+        input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
     </style>
 </head>
 <body>
@@ -33,6 +38,24 @@
             <li>No transactions found for this account.</li>
         {% endfor %}
     </ul>
+
+    <div class="section">
+        <h3>Saved Payment Methods (Flaw 4)</h3>
+        {% if card_number %}
+            <p>Saved Card: <strong>{{ card_number }}</strong></p>
+        {% else %}
+            <p>No card saved on file.</p>
+        {% endif %}
+
+        <form action="/profile/save/" method="POST" style="margin-top: 15px;">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="card_number">Save a New Card Number:</label>
+                <input type="text" id="card_number" name="card_number" placeholder="1234 5678 9876 5432" required>
+            </div>
+            <button type="submit">Save Card</button>
+        </form>
+    </div>
 </div>
 
 </body>

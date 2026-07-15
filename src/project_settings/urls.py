@@ -14,6 +14,8 @@ urlpatterns = [
     path('statement/<int:account_id>/', views.view_statement, name='view_statement'),
     path('profile/save/', views.save_payment_profile, name='save_payment_profile'),
     path('transactions/search/', views.search_transactions, name='search_transactions'),
-    path('withdrawal/process/', views.process_withdrawal, name='process_withdrawal'),
+    
+    path('all-accounts/', views.view_all_accounts, name='view_all_accounts'),
+    
     path('', root_redirect),
 ]
