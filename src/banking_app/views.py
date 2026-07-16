@@ -7,16 +7,12 @@ from django.db import connection
 from django.views.decorators.csrf import csrf_exempt 
 from .models import Account, PaymentProfile, Transaction
 
-# ==========================================
-# FLAW 1: Broken Access Control / IDOR
-# ==========================================
+
+# --- FLAW 1: IDOR / Access Control ---
 @login_required
 def view_statement(request, account_id):
     try:
-        # --- VULNERABLE: Insecure Direct Object Reference (Unchecked database lookup) ---
-        # account = Account.objects.get(pk=account_id)
-        
-        # --- SECURED: Enforced object-level ownership check ---
+        # Get the account and make sure the logged-in user actually owns it
         account = Account.objects.get(pk=account_id)
         if account.owner != request.user:
             return HttpResponseForbidden("Unauthorized to view this statement.")
@@ -26,20 +22,21 @@ def view_statement(request, account_id):
         
     transactions = Transaction.objects.filter(account=account)
     
-    # --- FLAW 4: Sensitive Data Exposure / UI Masking ---
+    # --- FLAW 4: Sensitive Data Exposure ---
     profile = PaymentProfile.objects.filter(user=request.user).first()
     card_number = None
     
     if profile:
         try:
+            # Decrypt card details
             cipher_suite = Fernet(settings.ENCRYPTION_KEY)
             decrypted_card = cipher_suite.decrypt(profile.encrypted_card).decode()
             
-            # --- VULNERABLE: Direct raw plaintext data exposure ---
-            # card_number = decrypted_card
-            
-            # --- SECURED: Truncated UI masking filter active ---
-            card_number = f"**** **** **** {decrypted_card[-4:]}" if len(decrypted_card) >= 4 else decrypted_card
+            # Mask the card number for UI safety (only show last 4 digits)
+            if len(decrypted_card) >= 4:
+                card_number = f"**** **** **** {decrypted_card[-4:]}"
+            else:
+                card_number = decrypted_card
             
         except Exception:
             card_number = "Error decrypting card data"
@@ -50,18 +47,14 @@ def view_statement(request, account_id):
         'card_number': card_number
     })
 
-# ==========================================
-# FLAW 2: Cryptographic Protection at Rest
-# ==========================================
+
+# --- FLAW 2: Cryptographic Protection ---
 @login_required
 def save_payment_profile(request):
     if request.method == 'POST':
         card_number = request.POST.get('card_number')
         if card_number:
-            # --- VULNERABLE: Plaintext storage committed directly to persistence layer ---
-            # encrypted_data = card_number.encode()
-            
-            # --- SECURED: Symmetric Fernet AES encryption wrapper active ---
+            # Encrypt card number using Fernet before saving to the DB
             cipher_suite = Fernet(settings.ENCRYPTION_KEY)
             encrypted_data = cipher_suite.encrypt(card_number.encode())
             
@@ -73,35 +66,24 @@ def save_payment_profile(request):
         return redirect(f'/statement/{user_account.id}/')
     return redirect('/')
 
-# ==========================================
-# FLAW 3: SQL Injection (Injection)
-# ==========================================
+
+# --- FLAW 3: SQL Injection ---
 @login_required
 def search_transactions(request):
     query = request.GET.get('q', '')
     
-    # --- VULNERABLE: Raw string interpolation building executable database commands ---
-    # raw_sql = f"SELECT * FROM banking_app_transaction WHERE description = '{query}'"
-    # results = Transaction.objects.raw(raw_sql)
-    
-    # --- SECURED: Parameterized Django ORM context api layer ---
+    # Safe lookup using Django's ORM (prevents raw SQL injection)
     results = Transaction.objects.filter(description__iexact=query)
     
     return render(request, 'banking_app/results.html', {'results': results, 'query': query})
 
-# ==========================================
-# FLAW 5: Broken Access Control (Missing Authentication & Authorization)
-# ==========================================
-# --- SECURED: Enforce active session tracking via login requirement ---
+
+# --- FLAW 5: Broken Access Control ---
 @login_required
 def view_all_accounts(request):
-    
-    # --- SECURED: Enforce role-based permission verification (Staff restriction) ---
+    # Only allow staff/admin users to view this dashboard
     if not request.user.is_staff:
         return HttpResponseForbidden("Access Denied: Administrative privileges required.")
-
-    # Note: To toggle this endpoint back into the vulnerable configuration, 
-    # comment out the @login_required decorator above along with this conditional staff validation block.
     
     accounts = Account.objects.all()
     html = """
