@@ -12,10 +12,12 @@ from .models import Account, PaymentProfile, Transaction
 @login_required
 def view_statement(request, account_id):
     try:
-        # Get the account and make sure the logged-in user actually owns it
+        # VULNERABLE RUNNING STATE: No ownership validation check
         account = Account.objects.get(pk=account_id)
-        if account.owner != request.user:
-            return HttpResponseForbidden("Unauthorized to view this statement.")
+        
+        # FIX (COMMENTED OUT): 
+        # if account.owner != request.user:
+        #     return HttpResponseForbidden("Unauthorized to view this statement.")
             
     except Account.DoesNotExist:
         return redirect('/')
@@ -28,15 +30,17 @@ def view_statement(request, account_id):
     
     if profile:
         try:
-            # Decrypt card details
             cipher_suite = Fernet(settings.ENCRYPTION_KEY)
             decrypted_card = cipher_suite.decrypt(profile.encrypted_card).decode()
             
-            # Mask the card number for UI safety (only show last 4 digits)
-            if len(decrypted_card) >= 4:
-                card_number = f"**** **** **** {decrypted_card[-4:]}"
-            else:
-                card_number = decrypted_card
+            # VULNERABLE RUNNING STATE: Direct raw plaintext data exposure
+            card_number = decrypted_card
+            
+            # FIX (COMMENTED OUT):
+            # if len(decrypted_card) >= 4:
+            #     card_number = f"**** **** **** {decrypted_card[-4:]}"
+            # else:
+            #     card_number = decrypted_card
             
         except Exception:
             card_number = "Error decrypting card data"
@@ -54,9 +58,12 @@ def save_payment_profile(request):
     if request.method == 'POST':
         card_number = request.POST.get('card_number')
         if card_number:
-            # Encrypt card number using Fernet before saving to the DB
-            cipher_suite = Fernet(settings.ENCRYPTION_KEY)
-            encrypted_data = cipher_suite.encrypt(card_number.encode())
+            # VULNERABLE RUNNING STATE: Plaintext storage committed directly to database
+            encrypted_data = card_number.encode()
+            
+            # FIX (COMMENTED OUT):
+            # cipher_suite = Fernet(settings.ENCRYPTION_KEY)
+            # encrypted_data = cipher_suite.encrypt(card_number.encode())
             
             profile = PaymentProfile(user=request.user, encrypted_card=encrypted_data)
             profile.save()
@@ -72,18 +79,23 @@ def save_payment_profile(request):
 def search_transactions(request):
     query = request.GET.get('q', '')
     
-    # Safe lookup using Django's ORM (prevents raw SQL injection)
-    results = Transaction.objects.filter(description__iexact=query)
+    # VULNERABLE RUNNING STATE: Raw string interpolation building executable commands
+    raw_sql = f"SELECT * FROM banking_app_transaction WHERE description = '{query}'"
+    results = Transaction.objects.raw(raw_sql)
+    
+    # FIX (COMMENTED OUT):
+    # results = Transaction.objects.filter(description__iexact=query)
     
     return render(request, 'banking_app/results.html', {'results': results, 'query': query})
 
 
 # --- FLAW 5: Broken Access Control ---
-@login_required
+# VULNERABLE RUNNING STATE: Missing @login_required decorator entirely to keep endpoint open
 def view_all_accounts(request):
-    # Only allow staff/admin users to view this dashboard
-    if not request.user.is_staff:
-        return HttpResponseForbidden("Access Denied: Administrative privileges required.")
+    
+    # FIX (COMMENTED OUT):
+    # if not request.user.is_staff:
+    #     return HttpResponseForbidden("Access Denied: Administrative privileges required.")
     
     accounts = Account.objects.all()
     html = """
