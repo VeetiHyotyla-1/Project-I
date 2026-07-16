@@ -8,15 +8,15 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Account, PaymentProfile, Transaction
 
 # ==========================================
-# FLAW 1: IDOR / Access Control
+# FLAW 1: Broken Access Control / IDOR
 # ==========================================
 @login_required
 def view_statement(request, account_id):
     try:
-        # --- BEFORE SCREENSHOT: Broken access control (fetches any account by ID) ---
+        # --- VULNERABLE: Insecure Direct Object Reference (Unchecked database lookup) ---
         # account = Account.objects.get(pk=account_id)
         
-        # --- AFTER SCREENSHOT: Safe access control checking owner ---
+        # --- SECURED: Enforced object-level ownership check ---
         account = Account.objects.get(pk=account_id)
         if account.owner != request.user:
             return HttpResponseForbidden("Unauthorized to view this statement.")
@@ -26,7 +26,7 @@ def view_statement(request, account_id):
         
     transactions = Transaction.objects.filter(account=account)
     
-    # --- FLAW 4: Fetch payment profile data for rendering ---
+    # --- FLAW 4: Sensitive Data Exposure / UI Masking ---
     profile = PaymentProfile.objects.filter(user=request.user).first()
     card_number = None
     
@@ -35,10 +35,10 @@ def view_statement(request, account_id):
             cipher_suite = Fernet(settings.ENCRYPTION_KEY)
             decrypted_card = cipher_suite.decrypt(profile.encrypted_card).decode()
             
-            # --- BEFORE SCREENSHOT (FLAW 4): Plaintext raw sensitive data exposure (COMMENTED OUT) ---
+            # --- VULNERABLE: Direct raw plaintext data exposure ---
             # card_number = decrypted_card
             
-            # --- AFTER SCREENSHOT (FLAW 4): Masked card number display (ACTIVE) ---
+            # --- SECURED: Truncated UI masking filter active ---
             card_number = f"**** **** **** {decrypted_card[-4:]}" if len(decrypted_card) >= 4 else decrypted_card
             
         except Exception:
@@ -58,17 +58,16 @@ def save_payment_profile(request):
     if request.method == 'POST':
         card_number = request.POST.get('card_number')
         if card_number:
-            # --- BEFORE SCREENSHOT: Plaintext save ---
+            # --- VULNERABLE: Plaintext storage committed directly to persistence layer ---
             # encrypted_data = card_number.encode()
             
-            # --- AFTER SCREENSHOT: Symmetric encryption ---
+            # --- SECURED: Symmetric Fernet AES encryption wrapper active ---
             cipher_suite = Fernet(settings.ENCRYPTION_KEY)
             encrypted_data = cipher_suite.encrypt(card_number.encode())
             
             profile = PaymentProfile(user=request.user, encrypted_card=encrypted_data)
             profile.save()
             
-    # Safe back-reference lookup to redirect back to the user's statement page
     user_account = Account.objects.filter(owner=request.user).first()
     if user_account:
         return redirect(f'/statement/{user_account.id}/')
@@ -81,29 +80,29 @@ def save_payment_profile(request):
 def search_transactions(request):
     query = request.GET.get('q', '')
     
-    # --- BEFORE SCREENSHOT: Raw query string execution ---
+    # --- VULNERABLE: Raw string interpolation building executable database commands ---
     # raw_sql = f"SELECT * FROM banking_app_transaction WHERE description = '{query}'"
     # results = Transaction.objects.raw(raw_sql)
     
-    # --- AFTER SCREENSHOT: Parameterized Django ORM ---
+    # --- SECURED: Parameterized Django ORM context api layer ---
     results = Transaction.objects.filter(description__iexact=query)
     
     return render(request, 'banking_app/results.html', {'results': results, 'query': query})
 
 # ==========================================
-# FLAW 5: Broken Access Control (Missing Authentication)
+# FLAW 5: Broken Access Control (Missing Authentication & Authorization)
 # ==========================================
-# --- BEFORE SCREENSHOT: Comment out the decorator below to allow public access ---
-# @login_required
-
-# --- AFTER SCREENSHOT: Restrict access using authentication (ACTIVE) ---
+# --- SECURED: Enforce active session tracking via login requirement ---
 @login_required
 def view_all_accounts(request):
     
-    # --- AFTER SCREENSHOT: Uncomment the lines below to restrict access (ACTIVE) ---
+    # --- SECURED: Enforce role-based permission verification (Staff restriction) ---
     if not request.user.is_staff:
         return HttpResponseForbidden("Access Denied: Administrative privileges required.")
 
+    # Note: To toggle this endpoint back into the vulnerable configuration, 
+    # comment out the @login_required decorator above along with this conditional staff validation block.
+    
     accounts = Account.objects.all()
     html = """
     <html>

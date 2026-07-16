@@ -7,7 +7,6 @@ class Account(models.Model):
 
 class PaymentProfile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    # Secure: Only store encrypted binary payload at rest
     encrypted_card = models.BinaryField(null=True, blank=True)
 
 class Transaction(models.Model):
